@@ -88,6 +88,15 @@ struct ContentView: View {
     @State private var heartScale: CGFloat = 0.85
     @State private var heartEffectID: Int = 0
 
+    // MARK: ─────────────────────────────────────────────────────────────
+    //  대사(Dialogue) 설정
+    //  실제 대사 표시는 DialogueManager → DialogueWindowContent(NSPanel) 가 담당합니다.
+    // ─────────────────────────────────────────────────────────────────
+    private let dialogueDisplaySec: Double         = 3.5    // ← 대사 표시 지속 시간 (초)
+    private let workingDialogueIntervalSec: Double = 12.0   // ← Working 중 대사 출력 주기 (초)
+
+    @State private var workingDialogueTimer: Timer?
+
     // (더블탭 감지 제거됨 — 우클릭으로 Jumping 이동)
 
     // MARK: - 상태별 이미지명·프레임ms 매핑
@@ -219,6 +228,34 @@ struct ContentView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + delaySec, execute: item)
     }
 
+    // MARK: - 대사(Dialogue) 시스템
+
+    /// 지정한 트리거에 해당하는 대사를 무작위로 골라 DialogueManager 를 통해 표시합니다.
+    /// 실제 렌더링은 별도 NSPanel(DialogueWindowContent) 이 담당합니다.
+    private func showDialogue(for trigger: DialogueTrigger,
+                               duration: Double? = nil) {
+        guard let line = DialogueCatalog.randomLine(for: trigger) else { return }
+        DialogueManager.shared.show(line, duration: duration ?? dialogueDisplaySec)
+    }
+
+    /// Working 상태 진입 시 일정 간격으로 대사를 출력하는 타이머를 시작합니다.
+    private func startWorkingDialogueTimer() {
+        workingDialogueTimer?.invalidate()
+        workingDialogueTimer = Timer.scheduledTimer(
+            withTimeInterval: workingDialogueIntervalSec,
+            repeats: true
+        ) { _ in
+            guard animationState == .idleWorking else { return }
+            showDialogue(for: .working)
+        }
+    }
+
+    /// Working 상태 종료 시 타이머를 중단합니다.
+    private func stopWorkingDialogueTimer() {
+        workingDialogueTimer?.invalidate()
+        workingDialogueTimer = nil
+    }
+
     // MARK: - 터치 처리
 
     /// 살짝 누름 (일반 클릭) → Idle_Smile + 눌린 스케일 애니메이션
@@ -229,6 +266,7 @@ struct ContentView: View {
         triggerHaptic()
         applyPressScale()
         triggerHeartEffect()
+        showDialogue(for: .smile)
         switchAnimation(to: .idleSmile)
     }
 
@@ -239,6 +277,7 @@ struct ContentView: View {
         if animationState == .idleSmile {
             triggerHaptic()
             applyPressScale()
+            showDialogue(for: .jumping)
             switchAnimation(to: .idleJumping)
             return
         }
@@ -246,6 +285,7 @@ struct ContentView: View {
         guard animationState.isPrimaryInteractionState else { return }
         triggerHaptic()
         applyPressScale()
+        showDialogue(for: .jumping)
         switchAnimation(to: .idleJumping)
     }
 
@@ -298,6 +338,7 @@ struct ContentView: View {
     private func handleForcePress(isLeftHalf: Bool) {
         preferredWalkDirection = isLeftHalf ? 1.0 : -1.0
         triggerStrongHaptics()
+        showDialogue(for: .touch)
         // 스프라이트 전환을 현재 틱에 먼저 커밋
         switchAnimation(to: .idleTouch)
         scheduleTouchWalkTimeout()
@@ -318,13 +359,18 @@ struct ContentView: View {
 
             let roll = Double.random(in: 0..<1)
             if roll < smileProbability {
+                showDialogue(for: .smile)
                 switchAnimation(to: .idleSmile)
             } else if roll < smileProbability + boringProbability {
+                showDialogue(for: .boring)
                 switchAnimation(to: .idleBoring)
             } else if roll < smileProbability + boringProbability + jumpingProbability {
+                showDialogue(for: .jumping)
                 switchAnimation(to: .idleJumping)
+            } else {
+                // 확률에 해당하지 않으면 가끔 idle 대사만 표시
+                if Bool.random() { showDialogue(for: .idle) }
             }
-            // 확률에 해당하지 않으면 아무것도 안 함
         }
     }
 
@@ -584,6 +630,8 @@ struct ContentView: View {
         // (장시간 Idle_Default 상태에서 쌓인 belowThresholdCount가
         //  WorkingPrepare 직후 CPU 폴에서 즉시 인터럽트하는 것을 방지)
         belowThresholdCount = 0
+        showDialogue(for: .workingStart)
+        startWorkingDialogueTimer()
         switchAnimation(to: .idleWorkingPrepare)
     }
 
@@ -591,6 +639,8 @@ struct ContentView: View {
     private func handleWorkAppDeactivated() {
         isWorkAppActive = false
         guard animationState.isWorkingState else { return }
+        stopWorkingDialogueTimer()
+        showDialogue(for: .workingEnd)
         isInTransition = false
         switchAnimation(to: .idleDefault)
     }
@@ -760,6 +810,9 @@ struct ContentView: View {
         cpuTimer?.invalidate()
         accelDetector?.stop()
         accelDetector = nil
+        workingDialogueTimer?.invalidate()
+        workingDialogueTimer = nil
+        DialogueManager.shared.hide()
         if let m = mouseMonitor { NSEvent.removeMonitor(m) }
         let nc = NSWorkspace.shared.notificationCenter
         if let o = workspaceObserver { nc.removeObserver(o) }
