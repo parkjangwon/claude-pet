@@ -100,6 +100,7 @@ struct ContentView: View {
             setupWorkspaceObserver()
             startCPUMonitor()
             controller.startMouseFollowDetection()
+            controller.startObservingSpecialAnimationUnlock()
             HungerManager.shared.startHungerTimer()
             // 시작 시 이미 배고픈 상태이면 즉시 진입
             if HungerManager.shared.isHungry {

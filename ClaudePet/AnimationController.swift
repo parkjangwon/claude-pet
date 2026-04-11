@@ -42,8 +42,7 @@ final class AnimationController: ObservableObject {
 
     private var workItem:              DispatchWorkItem?
     private var touchWalkTimeoutItem:  DispatchWorkItem?
-    private var walkTimer:             Timer?
-    private var walkDistanceRemaining: CGFloat = 0
+    private var walkTimer:              Timer?
     private var preferredWalkDirection: CGFloat?
 
     // 자율 이동
@@ -55,6 +54,9 @@ final class AnimationController: ObservableObject {
     private var mouseFollowMonitor:    Any?
     private var isMouseFollowActive:   Bool = false
     private var mouseFollowResumeItem: DispatchWorkItem?
+
+    // 특수 애니메이션 해금 옵저버 토큰 (cleanup 시 제거)
+    private var specialAnimationUnlockObserver: Any?
 
     // MARK: - Computed
 
@@ -231,70 +233,54 @@ final class AnimationController: ObservableObject {
 
     // MARK: - 대사
 
+    /// 현재 호감도 레벨을 자동으로 반영해 대사를 표시합니다.
+    /// 기본 대사 + 달성한 티어의 대사 풀에서 랜덤 선택됩니다.
     func showDialogue(for trigger: DialogueTrigger, duration: Double? = nil) {
-        guard let line = DialogueCatalog.randomLine(for: trigger) else { return }
+        let level = AffinityManager.shared.level
+        guard let line = DialogueCatalog.randomLine(for: trigger, level: level) else { return }
         DialogueManager.shared.show(line, duration: duration ?? PetConfig.dialogueDisplaySec)
+    }
+
+    // MARK: - 특수 애니메이션 해금
+
+    /// 특수 애니메이션 해금 알림 수신을 시작합니다.
+    /// ContentView.onAppear 에서 한 번 호출하면 됩니다.
+    func startObservingSpecialAnimationUnlock() {
+        specialAnimationUnlockObserver = NotificationCenter.default.addObserver(
+            forName: AffinityManager.didUnlockSpecialAnimation,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleSpecialAnimationUnlock(notification)
+        }
+    }
+
+    private func handleSpecialAnimationUnlock(_ notification: Notification) {
+        guard let unlockLevel = notification.userInfo?["unlockLevel"] as? Int else { return }
+
+        // 해당 레벨의 특수 애니메이션 엔트리를 조회
+        guard let entry = AffinitySpecialAnimationRegistry.entry(forUnlockLevel: unlockLevel) else {
+            return
+        }
+
+        // 해금 대사 표시 (있으면 사용, 없으면 생략)
+        if let dialogue = entry.unlockDialogue {
+            DialogueManager.shared.show(dialogue, duration: PetConfig.dialogueDisplaySec * 1.5)
+        }
+
+        // TODO: 실제 특수 애니메이션 재생 — PetAnimationState 에 케이스를 추가한 뒤 아래를 구현하세요.
+        // guard let state = PetAnimationState(rawValue: entry.animationID) else { return }
+        // switchAnimation(to: state)
     }
 
     // MARK: - Touch_Walk 이동
 
     private func startWalkMovement() {
-        guard let window = windowProvider?() else { return }
-
-        let screen   = NSScreen.main ?? NSScreen.screens[0]
-        let currentX = window.frame.origin.x
-        let minX: CGFloat = 0
-        let maxX: CGFloat = screen.frame.width - window.frame.width
-
-        let requested = preferredWalkDirection
-        preferredWalkDirection = nil
-
-        guard let direction = resolveWalkDirection(
-            requested:   requested,
-            canGoRight:  currentX < maxX - 1,
-            canGoLeft:   currentX > minX + 1
-        ) else {
-            // 이동 불가 → 즉시 Default 복귀
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.animationState == .idleTouchWalk else { return }
-                self.isInTransition = false
-                self.switchAnimation(to: .idleDefault)
-            }
-            return
-        }
-
-        walkDirection          = direction
-        walkDistanceRemaining  = PetConfig.walkTotalDistance
-
-        let tickInterval:   Double   = 1.0 / 60.0
-        let pixelsPerTick:  CGFloat  = PetConfig.walkSpeed * CGFloat(tickInterval)
-
-        walkTimer = Timer.scheduledTimer(withTimeInterval: tickInterval, repeats: true) { [weak self] timer in
-            guard let self else { timer.invalidate(); return }
-            guard self.animationState == .idleTouchWalk else { timer.invalidate(); return }
-            guard let window = self.windowProvider?() else { timer.invalidate(); return }
-
-            let screen   = NSScreen.main ?? NSScreen.screens[0]
-            let currentX = window.frame.origin.x
-            let newX     = currentX + (self.walkDirection * pixelsPerTick)
-            let minX: CGFloat = 0
-            let maxX: CGFloat = screen.frame.width - window.frame.width
-            let clampedX = max(minX, min(maxX, newX))
-            let hitEdge  = abs(clampedX - newX) > 0.1
-
-            window.setFrameOrigin(CGPoint(x: clampedX, y: window.frame.origin.y))
-            self.walkDistanceRemaining -= pixelsPerTick
-
-            if self.walkDistanceRemaining <= 0 || hitEdge {
-                timer.invalidate()
-                self.walkTimer = nil
-                DispatchQueue.main.async {
-                    guard self.animationState == .idleTouchWalk else { return }
-                    self.isInTransition = false
-                    self.switchAnimation(to: .idleDefault)
-                }
-            }
-        }
+        startWalkMovementCore(
+            speed:         PetConfig.walkSpeed,
+            maxDistance:   PetConfig.walkTotalDistance,
+            expectedState: .idleTouchWalk
+        )
     }
 
     /// 요청 방향과 가능 방향을 종합해 실제 이동 방향을 결정합니다.
@@ -445,6 +431,23 @@ final class AnimationController: ObservableObject {
     }
 
     private func startAutonomousWalkMovement() {
+        startWalkMovementCore(
+            speed:         PetConfig.autonomousWalkSpeed,
+            maxDistance:   PetConfig.autonomousWalkDistance,
+            expectedState: .idleWalk
+        )
+    }
+
+    /// Touch Walk 과 Autonomous Walk 에 공통으로 사용하는 이동 로직.
+    /// - Parameters:
+    ///   - speed:          이동 속도 (px/초)
+    ///   - maxDistance:    최대 이동 거리 (px)
+    ///   - expectedState:  이 상태일 때만 타이머 실행 (.idleTouchWalk 또는 .idleWalk)
+    private func startWalkMovementCore(
+        speed:         CGFloat,
+        maxDistance:   CGFloat,
+        expectedState: PetAnimationState
+    ) {
         guard let window = windowProvider?() else { return }
 
         let screen   = NSScreen.main ?? NSScreen.screens[0]
@@ -452,28 +455,33 @@ final class AnimationController: ObservableObject {
         let minX: CGFloat = 0
         let maxX: CGFloat = screen.frame.width - window.frame.width
 
+        let requested = preferredWalkDirection
+        preferredWalkDirection = nil
+
         guard let direction = resolveWalkDirection(
-            requested:  preferredWalkDirection,
+            requested:  requested,
             canGoRight: currentX < maxX - 1,
             canGoLeft:  currentX > minX + 1
         ) else {
+            // 이동 불가 → 즉시 Default 복귀
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.animationState == .idleWalk else { return }
+                guard let self, self.animationState == expectedState else { return }
                 self.isInTransition = false
                 self.switchAnimation(to: .idleDefault)
             }
             return
         }
-        preferredWalkDirection = nil
+
         walkDirection = direction
+        var distanceMoved: CGFloat = 0
 
-        let tickInterval:  Double   = 1.0 / 60.0
-        let pixelsPerTick: CGFloat  = PetConfig.autonomousWalkSpeed * CGFloat(tickInterval)
-        var distanceMoved: CGFloat  = 0
+        let tickInterval:  Double  = 1.0 / 60.0
+        let pixelsPerTick: CGFloat = speed * CGFloat(tickInterval)
+        let isTouchWalk = expectedState == .idleTouchWalk
 
-        autonomousWalkTimer = Timer.scheduledTimer(withTimeInterval: tickInterval, repeats: true) { [weak self] timer in
+        let timer = Timer.scheduledTimer(withTimeInterval: tickInterval, repeats: true) { [weak self] timer in
             guard let self else { timer.invalidate(); return }
-            guard self.animationState == .idleWalk else { timer.invalidate(); return }
+            guard self.animationState == expectedState else { timer.invalidate(); return }
             guard let window = self.windowProvider?() else { timer.invalidate(); return }
 
             let screen   = NSScreen.main ?? NSScreen.screens[0]
@@ -487,16 +495,18 @@ final class AnimationController: ObservableObject {
             window.setFrameOrigin(CGPoint(x: clampedX, y: window.frame.origin.y))
             distanceMoved += pixelsPerTick
 
-            if distanceMoved >= PetConfig.autonomousWalkDistance || hitEdge {
+            if distanceMoved >= maxDistance || hitEdge {
                 timer.invalidate()
-                self.autonomousWalkTimer = nil
+                if isTouchWalk { self.walkTimer = nil } else { self.autonomousWalkTimer = nil }
                 DispatchQueue.main.async {
-                    guard self.animationState == .idleWalk else { return }
+                    guard self.animationState == expectedState else { return }
                     self.isInTransition = false
                     self.switchAnimation(to: .idleDefault)
                 }
             }
         }
+
+        if isTouchWalk { walkTimer = timer } else { autonomousWalkTimer = timer }
     }
 
     // MARK: - 마우스 추적 (Mouse Follow)
@@ -618,6 +628,10 @@ final class AnimationController: ObservableObject {
         mouseFollowResumeItem?.cancel()
         mouseFollowResumeItem = nil
         stopMouseFollowDetection()
+        if let obs = specialAnimationUnlockObserver {
+            NotificationCenter.default.removeObserver(obs)
+            specialAnimationUnlockObserver = nil
+        }
     }
 }
 
@@ -627,5 +641,7 @@ extension Notification.Name {
     /// 우클릭 시 메뉴 HUD를 열고 닫는 알림
     static let claudePetToggleMenu = Notification.Name("ClaudePet.ToggleMenu")
     /// 밥주기 성공 시 ContentView 에 대사 출력을 요청하는 알림
-    static let claudePetFed        = Notification.Name("ClaudePet.Fed")
+    static let claudePetFed          = Notification.Name("ClaudePet.Fed")
+    /// 설정 HUD 패널 열기/닫기 요청 알림
+    static let claudePetOpenSettings = Notification.Name("ClaudePet.OpenSettings")
 }

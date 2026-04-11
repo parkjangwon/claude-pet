@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>ClaudePet</title>
+        <link>https://cchh494.github.io/claude-pet/appcast.xml</link>
+        <description>ClaudePet 업데이트 내역</description>
+        <language>ko</language>
+
+        <!-- ═══════════════════════════════════════════════════════════════
+             릴리즈를 추가할 때마다 아래 <item> 블록을 위에 추가하세요.
+             sparkle:edSignature 값은 sign_update 도구로 생성합니다.
+             ═══════════════════════════════════════════════════════════════ -->
+
+        <item>
+            <title>Version 1.0.0</title>
+            <sparkle:releaseNotesLink>https://github.com/cchh494/claude-pet/releases/tag/v1.0.0</sparkle:releaseNotesLink>
+            <pubDate>Sat, 12 Apr 2026 00:00:00 +0900</pubDate>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:version>1</sparkle:version>
+            <enclosure
+                url="https://github.com/cchh494/claude-pet/releases/download/v1.0.0/ClaudePet.zip"
+                sparkle:edSignature="SIGNATURE_HERE"
+                length="0"
+                type="application/octet-stream"/>
+        </item>
+
+    </channel>
+</rss>

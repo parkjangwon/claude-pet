@@ -71,20 +71,23 @@ final class HungerManager: ObservableObject {
     ///
     /// 성공 조건:
     ///   1. TypingCounter.shared.count >= PetConfig.feedTypingCost
-    ///   2. 현재 배고픔 수치가 최대값 미만
+    ///   2. hunger + feedHungerRestore <= hungerMax
+    ///      (포만도가 90 이하일 때만 먹일 수 있음 — 10을 줘도 100을 넘지 않는 경우)
     ///
     /// - Returns: 실제로 밥을 줬으면 true, 조건 불충족이면 false
     @discardableResult
     func feed() -> Bool {
         guard TypingCounter.shared.count >= PetConfig.feedTypingCost else { return false }
-        guard hunger < PetConfig.hungerMax else { return false }
+        guard hunger + PetConfig.feedHungerRestore <= PetConfig.hungerMax else { return false }
 
         TypingCounter.shared.consume(PetConfig.feedTypingCost)
 
-        let prevIsHungry = isHungry
         hunger   = min(PetConfig.hungerMax, hunger + PetConfig.feedHungerRestore)
         isHungry = hunger <= PetConfig.hungerThreshold
         UserDefaults.standard.set(hunger, forKey: Self.storageKey)
+
+        // 호감도 증가 (밥을 줄 때마다 호감도 상승)
+        AffinityManager.shared.addAffinity()
 
         // 상태 변화 여부와 무관하게 항상 알림 발송 (UI 즉시 갱신)
         NotificationCenter.default.post(name: Self.didChange, object: nil)
@@ -96,7 +99,6 @@ final class HungerManager: ObservableObject {
     /// 배고픔 수치를 강제로 amount 만큼 차감합니다.
     /// [DEBUG] 디버그 버튼용 — 실제 게임 로직에 사용하지 마세요.
     func debugDecreaseHunger(by amount: Double) {
-        let prevIsHungry = isHungry
         hunger   = max(0, hunger - amount)
         isHungry = hunger <= PetConfig.hungerThreshold
         UserDefaults.standard.set(hunger, forKey: Self.storageKey)

@@ -56,4 +56,26 @@ enum PetConfig {
     static let feedTypingCost:          Int    = 100     // 밥주기 1회 타이핑 카운터 비용
     static let feedHungerRestore:       Double = 10.0    // 밥주기 1회 배고픔 회복량
     static let hungerDialogueIntervalSec: Double = 30.0  // 배고픔 상태 대사 출력 주기 (초)
+
+    // MARK: - 호감도 (Affinity)
+    static let affinityMaxLevel:      Int    = 100   // 최대 호감도 레벨
+    static let affinityPerFeed:       Int    = 1     // 밥주기 1회당 호감도 증가량
+    static let affinityBaseExp:       Int    = 20    // Lv1→Lv2 필요 exp
+    static let affinityExpGrowthRate: Double = 1.15  // 레벨당 exp 증가 배율 (지수)
+
+    // MARK: - 호감도 대사 티어 (Affinity Dialogue Tiers)
+    /// 몇 레벨마다 새 대사 세트가 추가되는지 결정합니다.
+    /// 예) 5 → Lv1-5 기본, Lv6-10 2단계, Lv11-15 3단계, ...
+    static let affinityDialogueTierSize: Int = 5
+
+    // MARK: - 호감도 특수 애니메이션 해금 (Affinity Special Animation Unlock)
+    /// 이 값의 배수 레벨에 도달할 때마다 특수 애니메이션이 해금됩니다.
+    /// 예) 10 → Lv10, Lv20, Lv30 ... 마다 해금
+    /// AffinitySpecialAnimation.swift 에서 각 레벨별 애니메이션을 등록하세요.
+    static let affinityAnimationUnlockStep: Int = 10
+
+    // MARK: - 개발 (Debug)
+    /// true 로 바꾸면 메뉴 HUD 에 디버그 섹션(포만도·타이핑·레벨 조작 버튼)이 표시됩니다.
+    /// 출시 전 반드시 false 로 되돌려 주세요.
+    static let debugEnabled: Bool = false
 }

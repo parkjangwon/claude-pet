@@ -24,6 +24,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         static let dialogueWidth: CGFloat       = 180.0   // ← 대사 박스 최대 너비 (px)
         static let dialogueHeight: CGFloat      = 0.0    // ← 대사 박스 높이 여유분 (px)
         static let dialogueGapAboveSprite: CGFloat = 6.0  // ← 스프라이트 상단과의 간격 (px)
+
+        // 메뉴 HUD 높이 — PetConfig.debugEnabled 에 따라 자동 선택됩니다.
+        static let hudHeightBase:  CGFloat = 160.0   // ← 디버그 OFF 시 HUD 높이 (px)
+        static let hudHeightDebug: CGFloat = 328.0   // ← 디버그 ON  시 HUD 높이 (px)
+        static var hudHeight: CGFloat {
+            PetConfig.debugEnabled ? hudHeightDebug : hudHeightBase
+        }
     }
 
     var overlayWindow: NSWindow?
@@ -31,10 +38,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var counterPanel:  NSPanel?
 
     // ─── 메뉴 HUD ─────────────────────────────────────────────────────────
-    var menuHUDPanel:             NSPanel?
-    var menuOutsideClickMonitor:  Any?
+    var menuHUDPanel:                  NSPanel?
+    var menuOutsideClickMonitor:       Any?   // 다른 앱 클릭 감지 (global)
+    var menuOutsideClickLocalMonitor:  Any?   // 앱 내부 클릭 감지 (local)
+
+    // ─── 설정 HUD ─────────────────────────────────────────────────────────
+    var settingsHUDPanel:                 NSPanel?
+    var settingsOutsideClickMonitor:      Any?
+    var settingsOutsideClickLocalMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+
+        // ─── 단일 인스턴스 확인 ──────────────────────────────────────────────
+        // 동일한 Bundle ID 로 이미 실행 중인 인스턴스가 있으면
+        // 그 인스턴스를 앞으로 가져오고 현재 프로세스를 즉시 종료합니다.
+        let myBundleID = Bundle.main.bundleIdentifier ?? ""
+        let existingInstances = NSRunningApplication
+            .runningApplications(withBundleIdentifier: myBundleID)
+            .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
+
+        if let existing = existingInstances.first {
+            existing.activate(options: .activateIgnoringOtherApps)
+            NSApp.terminate(nil)
+            return
+        }
 
         // ─── 손쉬운 사용 권한 확인 ────────────────────────────────────────────
         // 권한이 없으면 시스템 설정 > 개인 정보 보호 > 손쉬운 사용 창을 자동으로 열고
@@ -44,8 +71,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
 
         // ─── 스프라이트 메인 창 ───────────────────────────────────────────
-        let spriteSize     = Layout.baseSpriteSize * Layout.spriteScale          // 96 px
-        let effectHeadroom = spriteSize * Layout.topEffectHeadroomRatio          // ~124.8 px
+        let spriteSize     = Layout.baseSpriteSize * SettingsManager.shared.spriteScale
+        let effectHeadroom = spriteSize * Layout.topEffectHeadroomRatio
         let size           = CGSize(width: spriteSize, height: spriteSize + effectHeadroom)
 
         // 타이핑 카운터가 스프라이트와 겹쳐지므로 스프라이트를 화면 최하단에서 시작
@@ -79,13 +106,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         //   스프라이트 가시 상단 Y = bottomMargin + spriteSize
         //   패널 Y               = 스프라이트 상단 + dialogueGap
         //   패널 X               = 스프라이트 중심에서 패널 너비의 절반을 뺀 값 (수평 중앙 정렬)
-        let spriteVisibleTopY   = origin.y + spriteSize + Layout.dialogueGapAboveSprite
-        let dialoguePanelX      = origin.x - (Layout.dialogueWidth - spriteSize) / 2
+        let uiScaleInit         = SettingsManager.shared.uiScale
+        let diaWidth            = Layout.dialogueWidth * uiScaleInit
+        let spriteVisibleTopY   = origin.y + spriteSize + Layout.dialogueGapAboveSprite * uiScaleInit
+        let dialoguePanelX      = origin.x - (diaWidth - spriteSize) / 2
 
         let dialogueRect = NSRect(
             x: dialoguePanelX,
             y: spriteVisibleTopY,
-            width: Layout.dialogueWidth,
+            width: diaWidth,
             height: Layout.dialogueHeight
         )
 
@@ -116,8 +145,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let counterRect = NSRect(
             x: origin.x,
             y: origin.y,                                                         // 스프라이트와 동일 위치 (겹침)
-            width: spriteSize,
-            height: Layout.counterHeight
+            width:  spriteSize,
+            height: Layout.counterHeight * uiScaleInit
         )
 
         let counter = NSPanel(
@@ -144,6 +173,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             name: .claudePetToggleMenu,
             object: nil
         )
+
+        // ─── 설정 HUD 알림 등록 ───────────────────────────────────────────
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleToggleSettingsHUD),
+            name: .claudePetOpenSettings,
+            object: nil
+        )
+
+        // ─── 설정 변경 알림 등록 (배율 변경 즉시 적용) ────────────────────
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSettingsChanged),
+            name: SettingsManager.didChange,
+            object: nil
+        )
+
+        // ─── 시작 시 저장된 배율 적용 ─────────────────────────────────────
+        // (winodw 가 이미 만들어진 뒤에 호출)
+        DispatchQueue.main.async { self.applyScale() }
+
+        // ─── Sparkle 자동 업데이트 초기화 ────────────────────────────────
+        // Sparkle 이 앱 시작 시 자동으로 업데이트를 확인하고 알림을 표시합니다.
+        SparkleManager.shared.setup()
     }
 
     // MARK: - 메뉴 HUD 토글
@@ -163,9 +216,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ensureMenuHUDPanel()
         guard let panel = menuHUDPanel, let petWindow = overlayWindow else { return }
 
-        let spriteSize: CGFloat = Layout.baseSpriteSize * Layout.spriteScale  // 96 px
-        let hudWidth:   CGFloat = 188
-        let hudHeight:  CGFloat = 268   // 배고픔 바 + [DEBUG] 섹션 포함 높이
+        let uiScale     = SettingsManager.shared.uiScale
+        let spriteSize  = Layout.baseSpriteSize * SettingsManager.shared.spriteScale
+        let hudWidth    = 188 * uiScale
+        let hudHeight   = Layout.hudHeight * uiScale
         let screen = NSScreen.main ?? NSScreen.screens[0]
 
         // 펫 스프라이트 바로 위에 위치, 수평 중앙 정렬
@@ -185,7 +239,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             panel.animator().alphaValue = 1
         }
 
-        // 외부 클릭 시 닫기 감지
+        // 외부 클릭 시 닫기 감지 — 다른 앱 클릭 (global)
         if menuOutsideClickMonitor == nil {
             menuOutsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
                 matching: [.leftMouseDown, .rightMouseDown]
@@ -202,6 +256,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
         }
+
+        // 외부 클릭 시 닫기 감지 — 앱 내부 클릭 (local)
+        // addGlobalMonitorForEvents 는 다른 앱 이벤트만 감지하므로,
+        // 같은 앱 내 오버레이 창 등을 클릭할 때도 HUD 를 닫으려면 로컬 모니터가 필요합니다.
+        if menuOutsideClickLocalMonitor == nil {
+            menuOutsideClickLocalMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.leftMouseDown, .rightMouseDown]
+            ) { [weak self] event in
+                guard let self,
+                      let hudPanel = self.menuHUDPanel, hudPanel.isVisible
+                else { return event }
+                let mousePos  = NSEvent.mouseLocation
+                let insideHUD = NSPointInRect(mousePos, hudPanel.frame)
+                if !insideHUD {
+                    DispatchQueue.main.async { self.hideMenuHUD() }
+                }
+                return event
+            }
+        }
     }
 
     private func hideMenuHUD() {
@@ -216,6 +289,235 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             NSEvent.removeMonitor(m)
             menuOutsideClickMonitor = nil
         }
+        if let m = menuOutsideClickLocalMonitor {
+            NSEvent.removeMonitor(m)
+            menuOutsideClickLocalMonitor = nil
+        }
+    }
+
+    // MARK: - 설정 HUD 토글
+
+    @objc private func handleToggleSettingsHUD() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let panel = self.settingsHUDPanel, panel.isVisible {
+                self.hideSettingsHUD()
+            } else {
+                self.showSettingsHUD()
+            }
+        }
+    }
+
+    @objc private func handleSettingsChanged() {
+        DispatchQueue.main.async {
+            // 배율이 바뀌면 HUD 패널을 파괴해 다음 open 시 새 크기로 재생성합니다.
+            // 현재 패널이 열려 있으면 먼저 닫고 배율 적용 후 다시 엽니다.
+            let menuWasVisible     = self.menuHUDPanel?.isVisible     ?? false
+            let settingsWasVisible = self.settingsHUDPanel?.isVisible ?? false
+
+            if menuWasVisible     { self.hideMenuHUD()     }
+            if settingsWasVisible { self.hideSettingsHUD() }
+
+            self.menuHUDPanel     = nil
+            self.settingsHUDPanel = nil
+
+            self.applyScale()
+
+            if menuWasVisible     { self.showMenuHUD()     }
+            if settingsWasVisible { self.showSettingsHUD() }
+        }
+    }
+
+    private func showSettingsHUD() {
+        ensureSettingsHUDPanel()
+        guard let panel = settingsHUDPanel, let petWindow = overlayWindow else { return }
+
+        let uiScale    = SettingsManager.shared.uiScale
+        let spriteSize = Layout.baseSpriteSize * SettingsManager.shared.spriteScale
+        let hudWidth   = 188 * uiScale
+        let hudHeight  = 196 * uiScale    // 설정 HUD 기본 높이 × 배율 (업데이트 행 +48 포함)
+        let screen = NSScreen.main ?? NSScreen.screens[0]
+
+        var hudX = petWindow.frame.midX - hudWidth / 2
+        let hudY = petWindow.frame.origin.y + spriteSize + 6
+
+        hudX = max(screen.frame.minX + 8, min(hudX, screen.frame.maxX - hudWidth - 8))
+
+        panel.setFrame(NSRect(x: hudX, y: hudY, width: hudWidth, height: hudHeight), display: false)
+        panel.alphaValue = 0
+        panel.orderFront(nil)
+
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.18
+            panel.animator().alphaValue = 1
+        }
+
+        // 외부 클릭 시 닫기 — global
+        if settingsOutsideClickMonitor == nil {
+            settingsOutsideClickMonitor = NSEvent.addGlobalMonitorForEvents(
+                matching: [.leftMouseDown, .rightMouseDown]
+            ) { [weak self] _ in
+                guard let self,
+                      let hudPanel = self.settingsHUDPanel, hudPanel.isVisible
+                else { return }
+                let mousePos  = NSEvent.mouseLocation
+                let insideHUD = NSPointInRect(mousePos, hudPanel.frame)
+                let insidePet = self.overlayWindow.map { NSPointInRect(mousePos, $0.frame) } ?? false
+                if !insideHUD && !insidePet {
+                    DispatchQueue.main.async { self.hideSettingsHUD() }
+                }
+            }
+        }
+
+        // 외부 클릭 시 닫기 — local
+        if settingsOutsideClickLocalMonitor == nil {
+            settingsOutsideClickLocalMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.leftMouseDown, .rightMouseDown]
+            ) { [weak self] event in
+                guard let self,
+                      let hudPanel = self.settingsHUDPanel, hudPanel.isVisible
+                else { return event }
+                let mousePos  = NSEvent.mouseLocation
+                let insideHUD = NSPointInRect(mousePos, hudPanel.frame)
+                if !insideHUD {
+                    DispatchQueue.main.async { self.hideSettingsHUD() }
+                }
+                return event
+            }
+        }
+    }
+
+    private func hideSettingsHUD() {
+        guard let panel = settingsHUDPanel else { return }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.14
+            panel.animator().alphaValue = 0
+        }, completionHandler: {
+            panel.orderOut(nil)
+        })
+        if let m = settingsOutsideClickMonitor {
+            NSEvent.removeMonitor(m)
+            settingsOutsideClickMonitor = nil
+        }
+        if let m = settingsOutsideClickLocalMonitor {
+            NSEvent.removeMonitor(m)
+            settingsOutsideClickLocalMonitor = nil
+        }
+    }
+
+    private func ensureSettingsHUDPanel() {
+        guard settingsHUDPanel == nil else { return }
+
+        let uiScale = SettingsManager.shared.uiScale
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 188 * uiScale, height: 196 * uiScale),
+            styleMask:   [.borderless, .nonactivatingPanel],
+            backing:     .buffered,
+            defer:       false
+        )
+        panel.backgroundColor  = .clear
+        panel.isOpaque         = false
+        panel.hasShadow        = true
+        panel.level            = NSWindow.Level(
+            rawValue: (overlayWindow?.level.rawValue ?? NSWindow.Level.floating.rawValue) + 2
+        )
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
+
+        let effectView = NSVisualEffectView()
+        effectView.material     = .popover
+        effectView.blendingMode = .behindWindow
+        effectView.state        = .active
+        effectView.wantsLayer   = true
+
+        let hostingView = NSHostingView(
+            rootView: SettingsHUDView(
+                onClose: { [weak self] in self?.hideSettingsHUD() }
+            )
+        )
+        hostingView.wantsLayer = true
+        hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+
+        effectView.addSubview(hostingView)
+        NSLayoutConstraint.activate([
+            hostingView.leadingAnchor.constraint(equalTo: effectView.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: effectView.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: effectView.topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: effectView.bottomAnchor),
+        ])
+        panel.contentView = effectView
+        settingsHUDPanel = panel
+    }
+
+    // MARK: - 배율 적용
+
+    /// SettingsManager.spriteScale 에 따라 모든 패널의 크기·위치를 재계산합니다.
+    private func applyScale() {
+        guard let screen = NSScreen.main ?? NSScreen.screens.first,
+              let petWindow = overlayWindow else { return }
+
+        let settings       = SettingsManager.shared
+        let uiScale        = settings.uiScale
+        let spriteSize     = Layout.baseSpriteSize * settings.spriteScale
+        let effectHeadroom = spriteSize * Layout.topEffectHeadroomRatio
+        let windowSize     = CGSize(width: spriteSize, height: spriteSize + effectHeadroom)
+
+        let origin = CGPoint(
+            x: screen.visibleFrame.maxX - windowSize.width,
+            y: 0
+        )
+
+        // 스프라이트 메인 창
+        petWindow.setFrame(NSRect(origin: origin, size: windowSize), display: true)
+
+        // 타이핑 카운터 패널 — 높이도 배율에 맞게 스케일
+        if let counter = counterPanel {
+            let counterRect = NSRect(
+                x: origin.x,
+                y: origin.y,
+                width:  spriteSize,
+                height: Layout.counterHeight * uiScale
+            )
+            counter.setFrame(counterRect, display: true)
+        }
+
+        // 대사 패널 — 너비·간격도 배율에 맞게 스케일
+        if let dialogue = dialoguePanel {
+            let gap               = Layout.dialogueGapAboveSprite * uiScale
+            let diaWidth          = Layout.dialogueWidth * uiScale
+            let spriteVisibleTopY = origin.y + spriteSize + gap
+            let dialoguePanelX    = origin.x - (diaWidth - spriteSize) / 2
+            let dialogueRect = NSRect(
+                x: dialoguePanelX,
+                y: spriteVisibleTopY,
+                width:  diaWidth,
+                height: Layout.dialogueHeight
+            )
+            dialogue.setFrame(dialogueRect, display: true)
+        }
+
+        // 열려 있는 메뉴·설정 HUD 위치도 갱신 (패널 재생성 전이므로 위치만 이동)
+        let hudBaseWidth: CGFloat = 188
+        if let menuPanel = menuHUDPanel, menuPanel.isVisible {
+            let hudWidth = hudBaseWidth * uiScale
+            var hudX     = petWindow.frame.midX - hudWidth / 2
+            hudX = max(screen.frame.minX + 8, min(hudX, screen.frame.maxX - hudWidth - 8))
+            let hudY = petWindow.frame.origin.y + spriteSize + 6
+            menuPanel.setFrame(
+                NSRect(x: hudX, y: hudY, width: hudWidth, height: menuPanel.frame.height),
+                display: true
+            )
+        }
+        if let settPanel = settingsHUDPanel, settPanel.isVisible {
+            let hudWidth = hudBaseWidth * uiScale
+            var hudX     = petWindow.frame.midX - hudWidth / 2
+            hudX = max(screen.frame.minX + 8, min(hudX, screen.frame.maxX - hudWidth - 8))
+            let hudY = petWindow.frame.origin.y + spriteSize + 6
+            settPanel.setFrame(
+                NSRect(x: hudX, y: hudY, width: hudWidth, height: settPanel.frame.height),
+                display: true
+            )
+        }
     }
 
     /// 최초 호출 시 한 번만 패널을 생성합니다. 이후 show/hide 로만 관리합니다.
@@ -223,19 +525,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard menuHUDPanel == nil else { return }
 
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 188, height: 268),
+            contentRect: NSRect(x: 0, y: 0, width: 188 * SettingsManager.shared.uiScale,
+                                            height: Layout.hudHeight * SettingsManager.shared.uiScale),
             styleMask:   [.borderless, .nonactivatingPanel],
             backing:     .buffered,
             defer:       false
         )
         panel.backgroundColor  = .clear
         panel.isOpaque         = false
-        panel.hasShadow        = false
+        panel.hasShadow        = true   // 시스템이 콘텐츠 형태에 맞는 그림자를 생성
         panel.level            = NSWindow.Level(
             rawValue: (overlayWindow?.level.rawValue ?? NSWindow.Level.floating.rawValue) + 2
         )
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
-        panel.contentView = NSHostingView(
+
+        // ── NSVisualEffectView 를 content view 로 직접 사용 ────────────────
+        // SwiftUI .background() 안에 NSVisualEffectView 를 넣으면 다른 앱 위에서
+        // blendingMode 가 제대로 동작하지 않아 직각 흰 배경이 보이는 문제가 발생합니다.
+        // content view 자체를 NSVisualEffectView 로 설정하고 cornerRadius + masksToBounds 로
+        // 정확히 둥근 모서리 클리핑을 처리합니다.
+        let hudEffectView = NSVisualEffectView()
+        hudEffectView.material      = .popover
+        hudEffectView.blendingMode  = .behindWindow
+        hudEffectView.state         = .active
+        hudEffectView.wantsLayer    = true
+
+        let hudHostingView = NSHostingView(
             rootView: MenuHUDView(
                 onClose: { [weak self] in self?.hideMenuHUD() },
                 onFeed:  { [weak self] in
@@ -251,6 +566,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             )
         )
+        hudHostingView.wantsLayer = true
+        hudHostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hudHostingView.translatesAutoresizingMaskIntoConstraints = false
+
+        hudEffectView.addSubview(hudHostingView)
+        NSLayoutConstraint.activate([
+            hudHostingView.leadingAnchor.constraint(equalTo: hudEffectView.leadingAnchor),
+            hudHostingView.trailingAnchor.constraint(equalTo: hudEffectView.trailingAnchor),
+            hudHostingView.topAnchor.constraint(equalTo: hudEffectView.topAnchor),
+            hudHostingView.bottomAnchor.constraint(equalTo: hudEffectView.bottomAnchor),
+        ])
+        panel.contentView = hudEffectView
         menuHUDPanel = panel
     }
 }
@@ -299,22 +626,26 @@ final class TypingCounter: ObservableObject {
 struct CounterWindowContent: View {
     // @ObservedObject 대신 @State + NotificationCenter 사용
     // → 별도 NSHostingView(child panel)에서도 확실하게 UI가 갱신됩니다.
-    @State private var count: Int = UserDefaults.standard.integer(forKey: "typingCount")
+    @State private var count:   Int     = UserDefaults.standard.integer(forKey: "typingCount")
+    @State private var uiScale: CGFloat = SettingsManager.shared.uiScale
 
     var body: some View {
         Text(count.formatted(.number))
-            .font(.system(size: 9, weight: .medium, design: .monospaced))
+            .font(.system(size: 9 * uiScale, weight: .medium, design: .monospaced))
             .foregroundColor(.white.opacity(0.85))
             .shadow(color: .black.opacity(0.6), radius: 1, x: 0, y: 1)
-            .padding(.horizontal, 4)
-            .padding(.vertical, 2)
+            .padding(.horizontal, 4 * uiScale)
+            .padding(.vertical,   2 * uiScale)
             .background(
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: 4 * uiScale)
                     .fill(Color.black.opacity(0.50))
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: TypingCounter.didChange)) { _ in
                 count = TypingCounter.shared.count
+            }
+            .onReceive(NotificationCenter.default.publisher(for: SettingsManager.didChange)) { _ in
+                uiScale = SettingsManager.shared.uiScale
             }
     }
 }
