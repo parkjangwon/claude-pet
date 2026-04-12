@@ -229,17 +229,6 @@ struct MenuHUDView: View {
             HStack(spacing: 4 * s) {
                 Spacer()
                 HUDIconButton(
-                    systemName: "cup.and.saucer.fill",
-                    tooltip:    "커피 사주기 ☕",
-                    scale:      s,
-                    iconColor:  Color(red: 0.85, green: 0.55, blue: 0.20),
-                    action: {
-                        if let url = URL(string: "https://buymeacoffee.com/YOUR_USERNAME") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }
-                )
-                HUDIconButton(
                     systemName: "arrow.clockwise.circle",
                     tooltip:    "업데이트 확인",
                     scale:      s,

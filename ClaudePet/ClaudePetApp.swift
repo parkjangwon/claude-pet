@@ -47,6 +47,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var settingsOutsideClickMonitor:      Any?
     var settingsOutsideClickLocalMonitor: Any?
 
+    // ─── 손쉬운 사용 권한 폴링 ──────────────────────────────────────────────
+    private var accessibilityPollTimer: Timer?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
 
         // ─── 단일 인스턴스 확인 ──────────────────────────────────────────────
@@ -64,9 +67,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // ─── 손쉬운 사용 권한 확인 ────────────────────────────────────────────
-        // 권한이 없으면 시스템 설정 > 개인 정보 보호 > 손쉬운 사용 창을 자동으로 열고
-        // ClaudePet 항목을 강조해줍니다. (빌드 후 매번 수동 추가 불필요)
-        AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary)
+        requestAccessibilityPermissionIfNeeded()
 
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
 
@@ -580,6 +581,63 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.contentView = hudEffectView
         menuHUDPanel = panel
     }
+
+    // MARK: - 손쉬운 사용 권한 요청
+
+    /// 손쉬운 사용 권한이 없을 경우 안내 알림을 표시하고 시스템 설정을 엽니다.
+    /// 권한이 부여될 때까지 1초 간격으로 폴링하며, 획득 시 노티피케이션을 발송합니다.
+    private func requestAccessibilityPermissionIfNeeded() {
+        // 이미 권한이 있으면 아무것도 하지 않음
+        guard !AXIsProcessTrusted() else { return }
+
+        // 시스템 팝업 트리거 (코드 서명된 배포 앱에서는 이것만으로도 팝업이 뜸)
+        AXIsProcessTrustedWithOptions(
+            [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        )
+
+        // 안내 알림 표시 — 팝업이 뜨지 않는 환경(미서명 빌드 등)을 대비
+        let alert = NSAlert()
+        alert.messageText = "손쉬운 사용 권한이 필요합니다"
+        alert.informativeText = """
+            타이핑 카운터가 작동하려면 손쉬운 사용(접근성) 권한이 필요합니다.
+
+            시스템 설정 > 개인 정보 보호 및 보안 > 손쉬운 사용
+            에서 ClaudePet 항목을 활성화해 주세요.
+            """
+        alert.addButton(withTitle: "시스템 설정 열기")
+        alert.addButton(withTitle: "나중에")
+        alert.alertStyle = .warning
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+            NSWorkspace.shared.open(url)
+        }
+
+        // 권한 획득될 때까지 폴링 (최대 5분)
+        startAccessibilityPolling()
+    }
+
+    private func startAccessibilityPolling() {
+        var elapsed = 0
+        accessibilityPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            elapsed += 1
+            if AXIsProcessTrusted() {
+                timer.invalidate()
+                self?.accessibilityPollTimer = nil
+                // ContentView 의 startKeyboardMonitor() 를 트리거
+                NotificationCenter.default.post(name: .accessibilityPermissionGranted, object: nil)
+            } else if elapsed >= 300 {
+                // 5분 후 포기
+                timer.invalidate()
+                self?.accessibilityPollTimer = nil
+            }
+        }
+    }
+}
+
+// MARK: - 노티피케이션 이름 확장
+extension Notification.Name {
+    static let accessibilityPermissionGranted = Notification.Name("com.claudepet.accessibilityPermissionGranted")
 }
 
 // MARK: - 타이핑 카운트 공유 모델

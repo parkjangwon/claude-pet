@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Darwin
+import ApplicationServices
 
 struct ContentView: View {
 
@@ -96,7 +97,18 @@ struct ContentView: View {
             controller.switchAnimation(to: .idleDefault)
             startRandomTimer()
             startMouseShakeDetection()
-            startKeyboardMonitor()
+            // 손쉬운 사용 권한이 있으면 즉시 시작, 없으면 권한 획득 후 시작
+            if AXIsProcessTrusted() {
+                startKeyboardMonitor()
+            } else {
+                NotificationCenter.default.addObserver(
+                    forName: .accessibilityPermissionGranted,
+                    object: nil,
+                    queue: .main
+                ) { [self] _ in
+                    startKeyboardMonitor()
+                }
+            }
             setupWorkspaceObserver()
             startCPUMonitor()
             controller.startMouseFollowDetection()
