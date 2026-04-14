@@ -40,14 +40,16 @@ jobs:
 
       - name: Build app
         run: |
+          # CODE_SIGNING_ALLOWED=NO 를 제거하고 Ad Hoc 서명(-) 적용
+          # Sparkle의 Autoupdate 헬퍼 바이너리도 서명되어야 macOS가 설치를 허용함
           xcodebuild clean build \
             -project ClaudePet.xcodeproj \
             -scheme ClaudePet \
             -configuration Release \
             -derivedDataPath build \
             CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=YES \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
             DEVELOPMENT_TEAM="" \
             | xcpretty && exit ${PIPESTATUS[0]}
 
