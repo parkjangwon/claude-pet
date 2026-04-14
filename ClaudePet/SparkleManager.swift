@@ -44,20 +44,42 @@ extension SparkleManager: SPUUpdaterDelegate {
     // MARK: 에러 처리
 
     /// 업데이트 프로세스가 오류로 중단될 때 호출됩니다.
-    /// 네트워크 오류, 서명 검증 실패, 다운로드 실패 등이 모두 여기로 들어옵니다.
+    /// 네트워크 오류, 서명 검증 실패, 다운로드 실패 등이 여기로 들어옵니다.
+    ///
+    /// 주의: "업데이트 없음" 도 Sparkle 내부적으로는 에러 코드로 전달되므로,
+    /// 실제 오류만 필터링해서 처리합니다.
     func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
         let ns = error as NSError
         log.error("Update aborted — domain: \(ns.domain, privacy: .public), code: \(ns.code), desc: \(ns.localizedDescription, privacy: .public)")
 
+        defer { isUserInitiatedCheck = false }
+
         // 사용자가 직접 체크한 경우에만 알림을 띄움
-        guard isUserInitiatedCheck else {
-            isUserInitiatedCheck = false
-            return
-        }
-        isUserInitiatedCheck = false
+        guard isUserInitiatedCheck else { return }
+
+        // "업데이트 없음", "사용자가 취소함" 은 진짜 오류가 아니므로 무시.
+        // Sparkle 이 자체 다이얼로그를 이미 보여줬거나, 조용히 끝나야 하는 경우.
+        if isBenignError(ns) { return }
 
         let (title, message) = friendlyMessage(for: ns)
         showAlert(title: title, message: message, style: .warning)
+    }
+
+    /// 실제 오류가 아닌 정상 종료 케이스를 구분.
+    private func isBenignError(_ error: NSError) -> Bool {
+        // SUErrorDomain 의 주요 정상 종료 코드:
+        //   1001 SUNoUpdateError        — 업데이트 없음 (최신 상태)
+        //   1002 SUAppcastError          — appcast 파싱 오류 (이건 실제 오류)
+        //   4005 SUUserInitiatedCanceled — 사용자가 취소
+        // NSUserCancelled 도 취소 케이스.
+        if error.code == NSUserCancelledError { return true }
+
+        let benignCodes: Set<Int> = [1001, 4005]
+        if (error.domain == "SUSparkleErrorDomain" || error.domain == "SUErrorDomain")
+            && benignCodes.contains(error.code) {
+            return true
+        }
+        return false
     }
 
     /// 업데이트가 없을 때 호출됩니다. (에러 아님)
@@ -71,13 +93,6 @@ extension SparkleManager: SPUUpdaterDelegate {
                  failedToDownloadUpdate item: SUAppcastItem,
                  error: Error) {
         log.error("Download failed for v\(item.displayVersionString, privacy: .public): \(error.localizedDescription, privacy: .public)")
-    }
-
-    /// appcast 파싱 후 유효한 업데이트를 찾았는지 검증하는 훅.
-    /// 여기서 false 를 반환하면 해당 아이템을 건너뜀.
-    func updater(_ updater: SPUUpdater, shouldProceedWithUpdate item: SUAppcastItem, updateCheck: SPUUpdateCheck) -> Bool {
-        log.info("Proceeding with update v\(item.displayVersionString, privacy: .public)")
-        return true
     }
 
     // MARK: - Helpers
