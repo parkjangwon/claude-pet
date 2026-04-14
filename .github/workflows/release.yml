@@ -120,9 +120,9 @@ jobs:
 
       - name: Update appcast.xml
         run: |
+          # --build 생략 시 update_appcast.py가 기존 빌드번호 최대값+1로 자동 계산
           python3 scripts/update_appcast.py \
             --version "${{ steps.version.outputs.version }}" \
-            --build "${{ steps.version.outputs.version }}" \
             --signature "${{ steps.sign.outputs.ed_signature }}" \
             --length "${{ steps.sign.outputs.file_length }}" \
             --appcast docs/appcast.xml
