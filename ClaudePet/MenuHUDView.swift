@@ -23,6 +23,7 @@ struct MenuHUDView: View {
     @State private var affinityRequiredExp: Int   = AffinityManager.shared.requiredExp
     @State private var affinityProgress:   Double = AffinityManager.shared.levelProgress
 
+    @ObservedObject private var sparkleManager = SparkleManager.shared
 
     // MARK: - 계산된 값
 
@@ -232,6 +233,7 @@ struct MenuHUDView: View {
                     systemName: "arrow.clockwise.circle",
                     tooltip:    "업데이트 확인\n현재 버전: v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "-")",
                     scale:      s,
+                    showsRedDot: sparkleManager.isUpdateAvailable,
                     action: {
                         SparkleManager.shared.checkForUpdates()
                     }
@@ -400,17 +402,20 @@ struct HUDIconButton: View {
     let systemName: String
     let tooltip:    String
     let scale:      CGFloat
+    let showsRedDot: Bool
     var iconColor:  Color? = nil
     var action:     (() -> Void)? = nil
 
     init(systemName: String,
          tooltip: String,
          scale: CGFloat = 1.0,
+         showsRedDot: Bool = false,
          iconColor: Color? = nil,
          action: (() -> Void)? = nil) {
         self.systemName = systemName
         self.tooltip    = tooltip
         self.scale      = scale
+        self.showsRedDot = showsRedDot
         self.iconColor  = iconColor
         self.action     = action
     }
@@ -420,18 +425,26 @@ struct HUDIconButton: View {
     private var s: CGFloat { scale }
 
     var body: some View {
-        Image(systemName: systemName)
-            .font(.system(size: 14 * s, weight: .regular))
-            .foregroundColor(isHovered
-                ? (iconColor ?? Color(nsColor: .labelColor))
-                : (iconColor?.opacity(0.75) ?? Color(nsColor: .secondaryLabelColor)))
-            .frame(width: 26 * s, height: 26 * s)
-            .background(
-                RoundedRectangle(cornerRadius: 6 * s, style: .continuous)
-                    .fill(isHovered
-                        ? Color(nsColor: .quaternaryLabelColor).opacity(0.5)
-                        : Color.clear)
-            )
+        ZStack(alignment: .topTrailing) {
+            Image(systemName: systemName)
+                .font(.system(size: 14 * s, weight: .regular))
+                .foregroundColor(isHovered
+                    ? (iconColor ?? Color(nsColor: .labelColor))
+                    : (iconColor?.opacity(0.75) ?? Color(nsColor: .secondaryLabelColor)))
+                .frame(width: 26 * s, height: 26 * s)
+
+            if showsRedDot {
+                UpdateRedDot(scale: s)
+                    .offset(x: -3 * s, y: 3 * s)
+            }
+        }
+        .frame(width: 26 * s, height: 26 * s)
+        .background(
+            RoundedRectangle(cornerRadius: 6 * s, style: .continuous)
+                .fill(isHovered
+                    ? Color(nsColor: .quaternaryLabelColor).opacity(0.5)
+                    : Color.clear)
+        )
             .contentShape(Rectangle())
             .onHover { isHovered = $0 }
             .onTapGesture { action?() }

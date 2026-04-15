@@ -1,12 +1,17 @@
 import Sparkle
 import AppKit
+import Combine
 import os.log
 
 /// Sparkle 자동 업데이트를 관리하는 싱글톤.
 /// AppDelegate 초기화 시 setup() 을 한 번 호출하세요.
-final class SparkleManager: NSObject {
+final class SparkleManager: NSObject, ObservableObject {
     static let shared = SparkleManager()
 
+    @Published private(set) var isUpdateAvailable = false
+    @Published private(set) var availableVersion: String?
+
+    private let targetVersion = "1.0.18"
     private var updaterController: SPUStandardUpdaterController?
     private let log = Logger(subsystem: "com.cchh494.ClaudePet", category: "Sparkle")
 
@@ -31,6 +36,19 @@ final class SparkleManager: NSObject {
     func checkForUpdates() {
         isUserInitiatedCheck = true
         updaterController?.checkForUpdates(nil)
+    }
+
+    private func updateAvailability(for version: String?) {
+        let hasTargetUpdate = version.map { isVersion($0, atLeast: targetVersion) } ?? false
+
+        DispatchQueue.main.async {
+            self.availableVersion = hasTargetUpdate ? version : nil
+            self.isUpdateAvailable = hasTargetUpdate
+        }
+    }
+
+    private func isVersion(_ version: String, atLeast target: String) -> Bool {
+        version.compare(target, options: .numeric) != .orderedAscending
     }
 }
 
@@ -85,7 +103,14 @@ extension SparkleManager: SPUUpdaterDelegate {
     /// 업데이트가 없을 때 호출됩니다. (에러 아님)
     func updaterDidNotFindUpdate(_ updater: SPUUpdater) {
         log.info("No update available")
+        updateAvailability(for: nil)
         // Sparkle 이 기본 다이얼로그를 띄우므로 별도 처리 불필요
+    }
+
+    /// Sparkle 이 검증한 새 업데이트가 있을 때 호출됩니다.
+    func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+        log.info("Update available: v\(item.displayVersionString, privacy: .public)")
+        updateAvailability(for: item.displayVersionString)
     }
 
     /// 다운로드 실패 시 호출됩니다.

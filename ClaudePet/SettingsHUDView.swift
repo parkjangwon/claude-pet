@@ -150,6 +150,7 @@ struct UpdateCheckRow: View {
     let scale:   CGFloat
     let onCheck: () -> Void
 
+    @ObservedObject private var sparkleManager = SparkleManager.shared
     @State private var isHovered = false
 
     private var s: CGFloat { scale }
@@ -177,9 +178,17 @@ struct UpdateCheckRow: View {
             Spacer()
 
             Button(action: onCheck) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9 * s, weight: .semibold))
-                    .foregroundColor(Color(nsColor: .secondaryLabelColor))
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9 * s, weight: .semibold))
+                        .foregroundColor(Color(nsColor: .secondaryLabelColor))
+                        .frame(width: 18 * s, height: 18 * s)
+
+                    if sparkleManager.isUpdateAvailable {
+                        UpdateRedDot(scale: s)
+                            .offset(x: 2 * s, y: -2 * s)
+                    }
+                }
             }
             .buttonStyle(PlainButtonStyle())
         }
@@ -194,6 +203,22 @@ struct UpdateCheckRow: View {
         .contentShape(RoundedRectangle(cornerRadius: 8 * s))
         .onHover { isHovered = $0 }
         .onTapGesture { onCheck() }
+    }
+}
+
+struct UpdateRedDot: View {
+    let scale: CGFloat
+
+    private var s: CGFloat { scale }
+
+    var body: some View {
+        Circle()
+            .fill(Color(red: 1.00, green: 0.18, blue: 0.16))
+            .frame(width: 7 * s, height: 7 * s)
+            .overlay(
+                Circle()
+                    .stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 1.2 * s)
+            )
     }
 }
 
