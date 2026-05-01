@@ -7,6 +7,9 @@ const BASE_SPRITE = 32;
 const DEFAULT_SCALE = 3;
 const EFFECT_HEADROOM_RATIO = 1.3;
 const COUNTER_HEIGHT = 32;
+const DIALOGUE_WIDTH = 180;
+const HUD_WIDTH = 188;
+const PANEL_MARGIN = 24;
 
 let petWindow;
 let tray;
@@ -56,8 +59,9 @@ function uiScale() {
 
 function windowSize() {
   const sprite = BASE_SPRITE * spriteScale();
+  const panelWidth = Math.max(DIALOGUE_WIDTH, HUD_WIDTH) * uiScale() + PANEL_MARGIN;
   return {
-    width: Math.round(sprite),
+    width: Math.round(Math.max(sprite, panelWidth)),
     height: Math.round(sprite + sprite * EFFECT_HEADROOM_RATIO + COUNTER_HEIGHT * uiScale()),
     sprite
   };

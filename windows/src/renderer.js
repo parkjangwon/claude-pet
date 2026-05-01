@@ -104,12 +104,24 @@ function setAnimation(name) {
 function renderFrame() {
   const info = ANIMATIONS[current];
   const size = 32 * state.spriteScale;
+  const counterHeight = 32 * state.uiScale;
+  const spriteBottom = counterHeight;
+  const panelBottom = spriteBottom + size + 6 * state.uiScale;
   spriteWrap.style.width = `${size}px`;
   spriteWrap.style.height = `${size}px`;
-  spriteWrap.style.bottom = `${32 * state.uiScale}px`;
+  spriteWrap.style.bottom = `${spriteBottom}px`;
   sprite.style.width = `${size * info.frames.length}px`;
   sprite.style.transform = `translateX(${-size * frame}px)`;
-  spriteWrap.style.transform = `scaleX(${(current === 'idleWalk' || current === 'idleTouchWalk') && walkDirection > 0 ? -1 : 1})`;
+  spriteWrap.style.transform = `translateX(-50%) scaleX(${(current === 'idleWalk' || current === 'idleTouchWalk') && walkDirection > 0 ? -1 : 1})`;
+  counter.style.width = `${size}px`;
+  counter.style.left = '50%';
+  counter.style.transform = 'translateX(-50%)';
+  heart.style.width = `${size * 0.24}px`;
+  heart.style.left = '50%';
+  heart.style.bottom = `${spriteBottom + size * 0.46}px`;
+  heart.style.transform = 'translateX(-50%)';
+  dialogue.style.bottom = `${panelBottom}px`;
+  hud.style.bottom = `${panelBottom}px`;
 }
 
 function scheduleFrame() {
@@ -134,9 +146,9 @@ function scheduleFrame() {
 function triggerHeart() {
   heart.src = imagePath('Emoji_Heart');
   heart.animate([
-    { opacity: 0, transform: 'translateY(10px) scale(.8)' },
-    { opacity: 1, transform: 'translateY(-6px) scale(1)', offset: 0.12 },
-    { opacity: 0, transform: 'translateY(-54px) scale(1.08)' }
+    { opacity: 0, transform: 'translateX(-50%) translateY(10px) scale(.8)' },
+    { opacity: 1, transform: 'translateX(-50%) translateY(-6px) scale(1)', offset: 0.12 },
+    { opacity: 0, transform: 'translateX(-50%) translateY(-54px) scale(1.08)' }
   ], { duration: 2900, easing: 'ease-out' });
 }
 

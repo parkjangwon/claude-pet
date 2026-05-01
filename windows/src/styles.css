@@ -16,7 +16,7 @@ body {
 
 #spriteWrap {
   position: absolute;
-  left: 0;
+  left: 50%;
   bottom: 32px;
   overflow: hidden;
   image-rendering: pixelated;
@@ -33,9 +33,8 @@ body {
 
 #counter {
   position: absolute;
-  left: 0;
+  left: 50%;
   bottom: 2px;
-  width: 100%;
   height: 28px;
   display: grid;
   place-items: center;
@@ -48,9 +47,8 @@ body {
 
 #heart {
   position: absolute;
-  width: 24%;
   height: auto;
-  left: 38%;
+  left: 50%;
   bottom: 78px;
   opacity: 0;
   image-rendering: pixelated;
@@ -61,8 +59,11 @@ body {
   position: absolute;
   left: 50%;
   bottom: 132px;
-  max-width: 180px;
-  padding: 7px 9px;
+  width: max-content;
+  min-width: 96px;
+  max-width: calc(100% - 24px);
+  padding: 8px 10px;
+  box-sizing: border-box;
   transform: translateX(-50%);
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 8px;
@@ -71,6 +72,10 @@ body {
   font-size: 12px;
   line-height: 1.32;
   text-align: center;
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  line-break: strict;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
   pointer-events: none;
 }
