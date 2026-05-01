@@ -15,9 +15,13 @@
 
 [ClaudePet 1.0.18 DMG 다운로드](https://github.com/parkjangwon/claude-pet/releases/download/v1.0.18/ClaudePet-1.0.18.dmg)
 
-[ClaudePet 1.0.18 Windows 설치 파일 다운로드](https://github.com/parkjangwon/claude-pet/releases/download/v1.0.18/ClaudePet-Setup-1.0.18.exe)
+[ClaudePet 1.0.18 Windows x64 설치 파일 다운로드](https://github.com/parkjangwon/claude-pet/releases/download/v1.0.18/ClaudePet-Setup-1.0.18-x64.exe)
 
-[ClaudePet 1.0.18 Windows 무설치 실행 파일 다운로드](https://github.com/parkjangwon/claude-pet/releases/download/v1.0.18/ClaudePet-Portable-1.0.18.exe)
+[ClaudePet 1.0.18 Windows x64 무설치 실행 파일 다운로드](https://github.com/parkjangwon/claude-pet/releases/download/v1.0.18/ClaudePet-Portable-1.0.18-x64.exe)
+
+[ClaudePet 1.0.18 Windows ARM64 설치 파일 다운로드](https://github.com/parkjangwon/claude-pet/releases/download/v1.0.18/ClaudePet-Setup-1.0.18-arm64.exe)
+
+[ClaudePet 1.0.18 Windows ARM64 무설치 실행 파일 다운로드](https://github.com/parkjangwon/claude-pet/releases/download/v1.0.18/ClaudePet-Portable-1.0.18-arm64.exe)
 
 처음 설치하는 사용자는 DMG 파일을 내려받아 `ClaudePet.app`을 Applications 폴더로 옮겨주세요!
 <img width="1096" height="388" alt="image" src="https://github.com/user-attachments/assets/ee877a97-6922-4e23-93d6-09276177e3b0" />
