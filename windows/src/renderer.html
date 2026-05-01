@@ -34,20 +34,42 @@
         <div class="bar hunger"><i id="hungerBar"></i></div>
       </section>
 
-      <div id="settingsRow" class="settings-row hidden">
-        <button id="scaleSmall">0.5x</button>
-        <button id="scaleNormal">1x</button>
-        <button id="scaleLarge">2x</button>
-        <button id="quit">종료</button>
-      </div>
-
-      <div class="hud-divider"></div>
-
       <div class="hud-actions">
-        <button id="resetPosition" class="hud-action" aria-label="위치 재정렬">↻</button>
         <button id="settingsButton" class="hud-action" aria-label="설정">⚙</button>
       </div>
     </div>
+
+    <div id="settingsHud" class="settings-hud hidden">
+      <div class="settings-header">
+        <span class="settings-title-icon">⚙</span>
+        <strong>설정</strong>
+        <button id="closeSettings" class="small-close" aria-label="닫기">×</button>
+      </div>
+
+      <div class="settings-divider"></div>
+
+      <label class="setting-row">
+        <span class="setting-icon">▭</span>
+        <span>작업표시줄 숨김</span>
+        <input id="hideTaskbar" type="checkbox" />
+      </label>
+
+      <div class="settings-divider"></div>
+
+      <section class="scale-section">
+        <div class="scale-title-row">
+          <span class="setting-icon green">↕</span>
+          <span>앱 크기</span>
+          <strong id="scaleLabel">1배</strong>
+        </div>
+        <div class="scale-options">
+          <button id="scaleSmall">0.5배</button>
+          <button id="scaleNormal">1배</button>
+          <button id="scaleLarge">2배</button>
+        </div>
+      </section>
+    </div>
+
     <main id="stage">
       <div id="counter">0</div>
       <img id="heart" src="" alt="" />
