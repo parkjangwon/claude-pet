@@ -1,0 +1,168 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  user-select: none;
+  background: transparent;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+#stage {
+  position: absolute;
+  inset: 0;
+}
+
+#spriteWrap {
+  position: absolute;
+  left: 0;
+  bottom: 32px;
+  overflow: hidden;
+  image-rendering: pixelated;
+  transform-origin: center bottom;
+}
+
+#sprite {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+#counter {
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  width: 100%;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 14px;
+  font-weight: 800;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+}
+
+#heart {
+  position: absolute;
+  width: 24%;
+  height: auto;
+  left: 38%;
+  bottom: 78px;
+  opacity: 0;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.dialogue {
+  position: absolute;
+  left: 50%;
+  bottom: 132px;
+  max-width: 180px;
+  padding: 7px 9px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #242424;
+  font-size: 12px;
+  line-height: 1.32;
+  text-align: center;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.hud {
+  position: absolute;
+  left: 50%;
+  bottom: 132px;
+  width: 188px;
+  transform: translateX(-50%);
+  padding: 8px 10px 10px;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 8px;
+  background: rgba(247, 247, 247, 0.95);
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.24);
+  color: #222;
+}
+
+.hidden {
+  display: none;
+}
+
+.icon-button {
+  float: right;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.08);
+  font-weight: 700;
+}
+
+section {
+  clear: both;
+  padding: 8px 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.13);
+}
+
+.bar i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #ff637d;
+}
+
+.bar.hunger i {
+  background: #56b870;
+}
+
+.feed,
+.tools button {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  background: white;
+  color: #222;
+  font-size: 12px;
+}
+
+.feed {
+  width: 100%;
+  height: 28px;
+  font-weight: 700;
+}
+
+.feed:disabled {
+  opacity: 0.45;
+}
+
+.tools {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.tools button {
+  height: 24px;
+  font-size: 11px;
+}

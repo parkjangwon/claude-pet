@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClaudePet</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="dialogue" class="dialogue hidden"></div>
+    <div id="hud" class="hud hidden">
+      <button id="closeHud" class="icon-button">×</button>
+      <section>
+        <div class="row"><span>호감도</span><strong id="affinity">Lv.1</strong></div>
+        <div class="bar"><i id="affinityBar"></i></div>
+      </section>
+      <section>
+        <div class="row"><span>배고픔</span><strong id="hungerText">100 / 100</strong></div>
+        <div class="bar hunger"><i id="hungerBar"></i></div>
+      </section>
+      <button id="feedButton" class="feed">밥주기</button>
+      <div class="tools">
+        <button id="scaleSmall">0.5x</button>
+        <button id="scaleNormal">1x</button>
+        <button id="scaleLarge">2x</button>
+        <button id="quit">종료</button>
+      </div>
+    </div>
+    <main id="stage">
+      <div id="counter">0</div>
+      <img id="heart" src="" alt="" />
+      <div id="spriteWrap">
+        <img id="sprite" draggable="false" alt="ClaudePet" />
+      </div>
+    </main>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

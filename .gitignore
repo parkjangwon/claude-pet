@@ -65,6 +65,11 @@ fastlane/test_output
 .DS_Store
 **/.DS_Store
 
+# Node / Electron
+node_modules/
+windows/node_modules/
+windows/dist/
+
 # Local working assets
 Asset/
 *.ase

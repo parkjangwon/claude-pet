@@ -1,0 +1,44 @@
+{
+  "name": "claude-pet-windows",
+  "version": "1.0.18",
+  "private": true,
+  "description": "Windows port of ClaudePet",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable"
+  },
+  "build": {
+    "appId": "com.cchh494.claudepet.windows",
+    "productName": "ClaudePet",
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../ClaudePet/Assets.xcassets",
+        "to": "ClaudePet/Assets.xcassets"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "../ClaudePet/Assets.xcassets/AppIcon.appiconset/Icon_composer-iOS-Default-1024x1024@1x.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "npmRebuild": false
+  },
+  "devDependencies": {
+    "electron": "^41.4.0",
+    "electron-builder": "^26.8.1"
+  },
+  "optionalDependencies": {
+    "uiohook-napi": "^1.5.5"
+  }
+}
