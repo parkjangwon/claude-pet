@@ -199,7 +199,7 @@ ipcMain.handle('feed', () => {
   if (store.typingCount < 100) {
     return { ok: false, reason: 'typing', state: publicState() };
   }
-  if (store.hunger >= 100) {
+  if (store.hunger + 10 > 100) {
     return { ok: false, reason: 'full', state: publicState() };
   }
 

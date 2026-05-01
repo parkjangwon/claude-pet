@@ -216,7 +216,7 @@ function updateHud() {
   document.getElementById('affinityBar').style.width = `${Math.min(100, state.affinityExp / required * 100)}%`;
   document.getElementById('hungerText').textContent = `${Math.floor(state.hunger)} / 100`;
   document.getElementById('hungerBar').style.width = `${state.hunger}%`;
-  document.getElementById('feedButton').disabled = state.typingCount < 100 || state.hunger >= 100;
+  document.getElementById('feedButton').disabled = state.typingCount < 100 || state.hunger + CONFIG.feedHungerRestore > CONFIG.hungerMax;
 }
 
 function startHunger() {
