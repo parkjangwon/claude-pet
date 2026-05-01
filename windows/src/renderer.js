@@ -216,7 +216,7 @@ function updateHud() {
   document.getElementById('affinityBar').style.width = `${Math.min(100, state.affinityExp / required * 100)}%`;
   document.getElementById('hungerText').textContent = `${Math.floor(state.hunger)} / 100`;
   document.getElementById('hungerBar').style.width = `${state.hunger}%`;
-  document.getElementById('feedButton').disabled = state.typingCount < 100 || state.hunger + 10 > 100;
+  document.getElementById('feedButton').disabled = state.typingCount < 100 || state.hunger >= 100;
 }
 
 function startHunger() {
@@ -255,9 +255,19 @@ window.addEventListener('keyup', () => {
   if (!hasNativeKeyboardHook) window.claudePet.incrementTyping();
 });
 
-document.getElementById('feedButton').addEventListener('click', () => {
-  window.claudePet.feed();
-  showDialogue('fed');
+document.getElementById('feedButton').addEventListener('click', async () => {
+  const result = await window.claudePet.feed();
+  if (result?.state) {
+    state = result.state;
+    updateHud();
+  }
+
+  if (result?.ok) {
+    showDialogue('fed');
+    if (current === 'idleHungry' && state.hunger > CONFIG.hungerThreshold) {
+      setAnimation('idleDefault');
+    }
+  }
 });
 
 window.claudePet.onTypingCount((count) => {

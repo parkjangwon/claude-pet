@@ -195,8 +195,14 @@ ipcMain.on('move-by', (_event, dx) => {
   petWindow.setBounds({ ...b, x });
 });
 
-ipcMain.on('feed', () => {
-  if (store.typingCount < 100 || store.hunger + 10 > 100) return;
+ipcMain.handle('feed', () => {
+  if (store.typingCount < 100) {
+    return { ok: false, reason: 'typing', state: publicState() };
+  }
+  if (store.hunger >= 100) {
+    return { ok: false, reason: 'full', state: publicState() };
+  }
+
   store.typingCount -= 100;
   store.hunger = Math.min(100, store.hunger + 10);
   store.affinityExp += 1;
@@ -206,7 +212,9 @@ ipcMain.on('feed', () => {
     store.affinityLevel = Math.min(100, store.affinityLevel + 1);
   }
   saveStore();
-  petWindow.webContents.send('settings', publicState());
+  const state = publicState();
+  petWindow.webContents.send('settings', state);
+  return { ok: true, state };
 });
 
 ipcMain.on('typing', () => {

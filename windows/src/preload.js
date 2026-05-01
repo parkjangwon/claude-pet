@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('claudePet', {
   state: () => ipcRenderer.invoke('state'),
   moveBy: (dx) => ipcRenderer.send('move-by', dx),
-  feed: () => ipcRenderer.send('feed'),
+  feed: () => ipcRenderer.invoke('feed'),
   setScale: (index) => ipcRenderer.send('set-scale', index),
   incrementTyping: () => ipcRenderer.send('typing'),
   setHunger: (value) => ipcRenderer.send('hunger', value),
