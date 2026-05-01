@@ -9,9 +9,7 @@ const EFFECT_HEADROOM_RATIO = 1.3;
 const COUNTER_HEIGHT = 32;
 const DIALOGUE_WIDTH = 220;
 const HUD_WIDTH = 188;
-const SETTINGS_WIDTH = 188;
 const HUD_HEIGHT = 170;
-const SETTINGS_HEIGHT = 230;
 const PANEL_MARGIN = 24;
 
 let petWindow;
@@ -63,9 +61,9 @@ function uiScale() {
 function windowSize() {
   const sprite = BASE_SPRITE * spriteScale();
   const scale = uiScale();
-  const panelWidth = Math.max(DIALOGUE_WIDTH, HUD_WIDTH, SETTINGS_WIDTH) + PANEL_MARGIN;
+  const panelWidth = Math.max(DIALOGUE_WIDTH, HUD_WIDTH) + PANEL_MARGIN;
   const spriteLayerHeight = sprite + sprite * EFFECT_HEADROOM_RATIO + COUNTER_HEIGHT * scale;
-  const hudLayerHeight = COUNTER_HEIGHT * scale + sprite + 6 * scale + Math.max(HUD_HEIGHT, SETTINGS_HEIGHT);
+  const hudLayerHeight = COUNTER_HEIGHT * scale + sprite + 6 * scale + HUD_HEIGHT;
   return {
     width: Math.round(Math.max(sprite, panelWidth)),
     height: Math.round(Math.max(spriteLayerHeight, hudLayerHeight)),
@@ -195,17 +193,6 @@ ipcMain.on('move-by', (_event, dx) => {
   const work = screen.getPrimaryDisplay().workArea;
   const x = Math.max(work.x, Math.min(work.x + work.width - b.width, b.x + dx));
   petWindow.setBounds({ ...b, x });
-});
-
-ipcMain.on('reset-position', () => {
-  const { width, height } = windowSize();
-  const work = screen.getPrimaryDisplay().workArea;
-  petWindow.setBounds({
-    x: Math.round(work.x + work.width - width),
-    y: Math.round(work.y + work.height - height + 10),
-    width,
-    height
-  });
 });
 
 ipcMain.on('feed', () => {

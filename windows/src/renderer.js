@@ -50,7 +50,6 @@ const counter = document.getElementById('counter');
 const heart = document.getElementById('heart');
 const dialogue = document.getElementById('dialogue');
 const hud = document.getElementById('hud');
-const settingsHud = document.getElementById('settingsHud');
 
 let state;
 let current = 'idleDefault';
@@ -123,7 +122,6 @@ function renderFrame() {
   heart.style.transform = 'translateX(-50%)';
   dialogue.style.bottom = `${panelBottom}px`;
   hud.style.bottom = `${panelBottom}px`;
-  settingsHud.style.bottom = `${panelBottom}px`;
 }
 
 function scheduleFrame() {
@@ -219,11 +217,6 @@ function updateHud() {
   document.getElementById('hungerText').textContent = `${Math.floor(state.hunger)} / 100`;
   document.getElementById('hungerBar').style.width = `${state.hunger}%`;
   document.getElementById('feedButton').disabled = state.typingCount < 100 || state.hunger + 10 > 100;
-  document.getElementById('hideTaskbar').checked = Boolean(state.hideTaskbar);
-  document.getElementById('scaleLabel').textContent = state.scaleIndex === 0 ? '0.5배' : state.scaleIndex === 2 ? '2배' : '1배';
-  for (const [id, index] of [['scaleSmall', 0], ['scaleNormal', 1], ['scaleLarge', 2]]) {
-    document.getElementById(id).classList.toggle('selected', state.scaleIndex === index);
-  }
 }
 
 function startHunger() {
@@ -243,7 +236,7 @@ function startHunger() {
 }
 
 window.addEventListener('click', (event) => {
-  if (hud.contains(event.target) || settingsHud.contains(event.target)) return;
+  if (hud.contains(event.target)) return;
   const now = Date.now();
   const doubleClick = now - lastClick < 320;
   lastClick = now;
@@ -254,7 +247,6 @@ window.addEventListener('click', (event) => {
 window.addEventListener('contextmenu', (event) => {
   event.preventDefault();
   hud.classList.toggle('hidden');
-  settingsHud.classList.add('hidden');
   dialogue.classList.add('hidden');
   updateHud();
 });
@@ -263,29 +255,10 @@ window.addEventListener('keyup', () => {
   if (!hasNativeKeyboardHook) window.claudePet.incrementTyping();
 });
 
-document.getElementById('closeHud').addEventListener('click', () => hud.classList.add('hidden'));
-document.getElementById('closeSettings').addEventListener('click', () => settingsHud.classList.add('hidden'));
-document.getElementById('settingsButton').addEventListener('click', () => {
-  hud.classList.add('hidden');
-  settingsHud.classList.remove('hidden');
-  updateHud();
-});
-document.getElementById('hideTaskbar').addEventListener('change', (event) => {
-  state.hideTaskbar = event.target.checked;
-  window.claudePet.setHideTaskbar(state.hideTaskbar);
-});
 document.getElementById('feedButton').addEventListener('click', () => {
   window.claudePet.feed();
   showDialogue('fed');
 });
-
-for (const [id, index] of [['scaleSmall', 0], ['scaleNormal', 1], ['scaleLarge', 2]]) {
-  document.getElementById(id).addEventListener('click', () => {
-    state.scaleIndex = index;
-    updateHud();
-    window.claudePet.setScale(index);
-  });
-}
 
 window.claudePet.onTypingCount((count) => {
   state.typingCount = count;
