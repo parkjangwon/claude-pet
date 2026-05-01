@@ -9,21 +9,43 @@
   <body>
     <div id="dialogue" class="dialogue hidden"></div>
     <div id="hud" class="hud hidden">
-      <button id="closeHud" class="icon-button">×</button>
-      <section>
-        <div class="row"><span>호감도</span><strong id="affinity">Lv.1</strong></div>
-        <div class="bar"><i id="affinityBar"></i></div>
+      <button id="closeHud" class="hud-close" aria-label="닫기">×</button>
+      <section class="hud-section">
+        <div class="hud-row">
+          <div class="hud-label-group">
+            <span>호감도</span>
+            <strong id="affinity">Lv.1</strong>
+          </div>
+          <strong id="affinityExp">0 / 20</strong>
+        </div>
+        <div class="bar affinity"><i id="affinityBar"></i></div>
       </section>
-      <section>
-        <div class="row"><span>배고픔</span><strong id="hungerText">100 / 100</strong></div>
+
+      <div class="hud-divider"></div>
+
+      <section class="hud-section hunger-section">
+        <div class="hud-row">
+          <div class="hud-label-group">
+            <span>배고픔</span>
+            <button id="feedButton" class="feed">밥주기</button>
+          </div>
+          <strong id="hungerText">100 / 100</strong>
+        </div>
         <div class="bar hunger"><i id="hungerBar"></i></div>
       </section>
-      <button id="feedButton" class="feed">밥주기</button>
-      <div class="tools">
+
+      <div id="settingsRow" class="settings-row hidden">
         <button id="scaleSmall">0.5x</button>
         <button id="scaleNormal">1x</button>
         <button id="scaleLarge">2x</button>
         <button id="quit">종료</button>
+      </div>
+
+      <div class="hud-divider"></div>
+
+      <div class="hud-actions">
+        <button id="resetPosition" class="hud-action" aria-label="위치 재정렬">↻</button>
+        <button id="settingsButton" class="hud-action" aria-label="설정">⚙</button>
       </div>
     </div>
     <main id="stage">

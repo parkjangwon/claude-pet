@@ -50,6 +50,7 @@ const counter = document.getElementById('counter');
 const heart = document.getElementById('heart');
 const dialogue = document.getElementById('dialogue');
 const hud = document.getElementById('hud');
+const settingsRow = document.getElementById('settingsRow');
 
 let state;
 let current = 'idleDefault';
@@ -209,9 +210,11 @@ function randomInterrupt() {
 }
 
 function updateHud() {
+  const required = Math.round(20 * Math.pow(1.15, Math.max(0, state.affinityLevel - 1)));
   counter.textContent = state.typingCount;
   document.getElementById('affinity').textContent = `Lv.${state.affinityLevel}`;
-  document.getElementById('affinityBar').style.width = `${Math.min(100, state.affinityExp * 5)}%`;
+  document.getElementById('affinityExp').textContent = `${state.affinityExp} / ${required}`;
+  document.getElementById('affinityBar').style.width = `${Math.min(100, state.affinityExp / required * 100)}%`;
   document.getElementById('hungerText').textContent = `${Math.floor(state.hunger)} / 100`;
   document.getElementById('hungerBar').style.width = `${state.hunger}%`;
   document.getElementById('feedButton').disabled = state.typingCount < 100 || state.hunger + 10 > 100;
@@ -254,6 +257,8 @@ window.addEventListener('keyup', () => {
 });
 
 document.getElementById('closeHud').addEventListener('click', () => hud.classList.add('hidden'));
+document.getElementById('settingsButton').addEventListener('click', () => settingsRow.classList.toggle('hidden'));
+document.getElementById('resetPosition').addEventListener('click', () => window.claudePet.resetPosition());
 document.getElementById('feedButton').addEventListener('click', () => {
   window.claudePet.feed();
   showDialogue('fed');

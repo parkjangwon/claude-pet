@@ -7,8 +7,9 @@ const BASE_SPRITE = 32;
 const DEFAULT_SCALE = 3;
 const EFFECT_HEADROOM_RATIO = 1.3;
 const COUNTER_HEIGHT = 32;
-const DIALOGUE_WIDTH = 180;
-const HUD_WIDTH = 188;
+const DIALOGUE_WIDTH = 220;
+const HUD_WIDTH = 376;
+const HUD_HEIGHT = 310;
 const PANEL_MARGIN = 24;
 
 let petWindow;
@@ -59,22 +60,26 @@ function uiScale() {
 
 function windowSize() {
   const sprite = BASE_SPRITE * spriteScale();
-  const panelWidth = Math.max(DIALOGUE_WIDTH, HUD_WIDTH) * uiScale() + PANEL_MARGIN;
+  const scale = uiScale();
+  const panelWidth = Math.max(DIALOGUE_WIDTH, HUD_WIDTH) + PANEL_MARGIN;
+  const spriteLayerHeight = sprite + sprite * EFFECT_HEADROOM_RATIO + COUNTER_HEIGHT * scale;
+  const hudLayerHeight = COUNTER_HEIGHT * scale + sprite + 6 * scale + HUD_HEIGHT;
   return {
     width: Math.round(Math.max(sprite, panelWidth)),
-    height: Math.round(sprite + sprite * EFFECT_HEADROOM_RATIO + COUNTER_HEIGHT * uiScale()),
+    height: Math.round(Math.max(spriteLayerHeight, hudLayerHeight)),
     sprite
   };
 }
 
 function createWindow() {
-  const { width, height } = windowSize();
+  const { width, height, sprite } = windowSize();
   const work = screen.getPrimaryDisplay().workArea;
+  const desiredX = work.x + work.width - width / 2 - sprite / 2;
 
   petWindow = new BrowserWindow({
     width,
     height,
-    x: Math.round(work.x + work.width - width),
+    x: Math.round(Math.max(work.x, Math.min(work.x + work.width - width, desiredX))),
     y: Math.round(work.y + work.height - height + 10),
     frame: false,
     transparent: true,
@@ -113,7 +118,15 @@ function setScale(index) {
   saveStore();
   const { width, height } = windowSize();
   const pos = petWindow.getBounds();
-  petWindow.setBounds({ x: pos.x, y: pos.y + pos.height - height, width, height });
+  const work = screen.getPrimaryDisplay().workArea;
+  const oldCenterX = pos.x + pos.width / 2;
+  const nextX = oldCenterX - width / 2;
+  petWindow.setBounds({
+    x: Math.round(Math.max(work.x, Math.min(work.x + work.width - width, nextX))),
+    y: pos.y + pos.height - height,
+    width,
+    height
+  });
   petWindow.webContents.send('settings', publicState());
   createTray();
 }
@@ -180,6 +193,17 @@ ipcMain.on('move-by', (_event, dx) => {
   const work = screen.getPrimaryDisplay().workArea;
   const x = Math.max(work.x, Math.min(work.x + work.width - b.width, b.x + dx));
   petWindow.setBounds({ ...b, x });
+});
+
+ipcMain.on('reset-position', () => {
+  const { width, height } = windowSize();
+  const work = screen.getPrimaryDisplay().workArea;
+  petWindow.setBounds({
+    x: Math.round(work.x + work.width - width),
+    y: Math.round(work.y + work.height - height + 10),
+    width,
+    height
+  });
 });
 
 ipcMain.on('feed', () => {
