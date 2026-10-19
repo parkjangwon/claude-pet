@@ -35,7 +35,7 @@
     "npmRebuild": false
   },
   "devDependencies": {
-    "electron": "^41.4.0",
+    "electron": "^41.10.6",
     "electron-builder": "^26.8.1"
   },
   "optionalDependencies": {
